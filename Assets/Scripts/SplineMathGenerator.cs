@@ -19,24 +19,23 @@ public class SplineMathGenerator : MonoBehaviour
     public float maxSlopeAngle = 25f;
     
     [Header("Infinite Generation - OPTIMIZADO")]
-    public int maxTracksInMemory = 4; // INCREMENTADO de 3 a 4
-    public float baseTriggerDistance = 100f; // INCREMENTADO de 50f
-    public float speedMultiplier = 2f; // NUEVO: Multiplicador basado en velocidad
-    public float maxTriggerDistance = 300f; // NUEVO: Límite máximo
-    public float cleanupSafetyDistance = 150f; // INCREMENTADO de 100f
+    public int maxTracksInMemory = 4;
+    public float baseTriggerDistance = 100f;
+    public float speedMultiplier = 2f;
+    public float maxTriggerDistance = 300f;
+    public float cleanupSafetyDistance = 150f;
     
     [Header("Performance")]
-    public bool adaptiveGeneration = true; // NUEVO: Generación adaptativa
-    public float lowSpeedThreshold = 10f; // NUEVO
-    public float highSpeedThreshold = 15f; // NUEVO
+    public bool adaptiveGeneration = true;
+    public float lowSpeedThreshold = 10f;
+    public float highSpeedThreshold = 15f;
     
     [Header("Debug")]
     public bool showSpline = true;
     public Color splineColor = Color.yellow;
     public float debugSphereSize = 0.3f;
-    public bool debugPerformance = true; // NUEVO
+    public bool debugPerformance = true;
     
-    // Datos del spline
     private List<Vector3> splinePoints = new List<Vector3>();
     private List<Vector3> splineDirections = new List<Vector3>();
     private List<float> splineDistances = new List<float>();
@@ -48,12 +47,10 @@ public class SplineMathGenerator : MonoBehaviour
     private Quaternion lastTrackEndRotation = Quaternion.identity;
     private int currentTrackIndex = 0;
     
-    // Referencias al jugador
     private ImprovedSplineFollower playerFollower;
     private float lastPlayerDistance = 0f;
-    private float lastPlayerSpeed = 0f; // NUEVO: Tracking de velocidad
+    private float lastPlayerSpeed = 0f;
     
-    // NUEVO: Variables de rendimiento
     private float currentTriggerDistance;
     private int segmentsGeneratedThisFrame = 0;
     private float lastGenerationTime = 0f;
@@ -70,7 +67,7 @@ public class SplineMathGenerator : MonoBehaviour
         public bool triggerGenerated = false;
         public float startDistance;
         public float endDistance;
-        public float generationTime; // NUEVO: Tiempo de generación
+        public float generationTime;
     }
     
     void Start()
@@ -80,7 +77,6 @@ public class SplineMathGenerator : MonoBehaviour
         playerFollower = FindObjectOfType<ImprovedSplineFollower>();
         currentTriggerDistance = baseTriggerDistance;
         
-        // Generar más splines iniciales para jugadores rápidos
         GenerateInitialSplineSegments();
         
         Debug.Log($"Initial spline generated: {splinePoints.Count} points, length: {totalSplineLength:F1}");
@@ -93,7 +89,6 @@ public class SplineMathGenerator : MonoBehaviour
         UpdateTriggerDistance();
         CleanupOldSplineSegments();
         
-        // NUEVO: Reset contador de generaciones por frame
         segmentsGeneratedThisFrame = 0;
     }
     
@@ -105,7 +100,6 @@ public class SplineMathGenerator : MonoBehaviour
             lastPlayerDistance = playerFollower.GetCurrentDistance();
             lastPlayerSpeed = playerFollower.GetSpeed();
             
-            // NUEVO: Debug de rendimiento
             if (debugPerformance && Time.time - lastGenerationTime > 1f)
             {
                 float distanceTraveled = lastPlayerDistance - previousDistance;
@@ -123,7 +117,6 @@ public class SplineMathGenerator : MonoBehaviour
     {
         if (!adaptiveGeneration || playerFollower == null) return;
         
-        // NUEVO: Calcular distancia de trigger basada en velocidad del jugador
         float speedFactor = Mathf.Lerp(1f, speedMultiplier, 
             Mathf.InverseLerp(lowSpeedThreshold, highSpeedThreshold, lastPlayerSpeed));
         
@@ -133,7 +126,6 @@ public class SplineMathGenerator : MonoBehaviour
     
     void GenerateInitialSplineSegments()
     {
-        // NUEVO: Generar más segmentos iniciales para alta velocidad
         int initialSegments = adaptiveGeneration ? 3 : 2;
         
         for (int i = 0; i < initialSegments; i++)
@@ -144,7 +136,6 @@ public class SplineMathGenerator : MonoBehaviour
     
     public void GenerateSplineSegment()
     {
-        // NUEVO: Limitar generaciones por frame para evitar lag
         if (segmentsGeneratedThisFrame >= 2)
         {
             Debug.Log("Max segments per frame reached, deferring generation");
@@ -160,19 +151,17 @@ public class SplineMathGenerator : MonoBehaviour
         newSegment.startPosition = lastTrackEndPosition;
         newSegment.startDirection = lastTrackEndRotation * Vector3.forward;
         newSegment.startDistance = totalSplineLength;
-        newSegment.generationTime = Time.time; // NUEVO
+        newSegment.generationTime = Time.time;
         
         Vector3 controlPoint1 = GenerateControlPoint();
         Vector3 controlPoint2 = GenerateControlPoint();
         
         List<Vector3> segmentSplinePoints = GenerateSegmentSplinePoints(controlPoint1, controlPoint2);
         
-        // NUEVO: Optimización - usar AddRange en lugar de foreach
         int startIndex = splinePoints.Count;
         splinePoints.AddRange(segmentSplinePoints);
         newSegment.points.AddRange(segmentSplinePoints);
         
-        // Calcular direcciones y distancias optimizado
         for (int i = 0; i < segmentSplinePoints.Count; i++)
         {
             Vector3 direction = Vector3.forward;
@@ -290,12 +279,9 @@ public class SplineMathGenerator : MonoBehaviour
         {
             SplineSegment oldestSegment = splineSegments[0];
             
-            // NUEVO: Cleanup más inteligente basado en velocidad
             float dynamicSafetyDistance = cleanupSafetyDistance;
             if (lastPlayerSpeed > highSpeedThreshold)
-            {
-                dynamicSafetyDistance *= 1.5f; // Más distancia de seguridad a alta velocidad
-            }
+                dynamicSafetyDistance *= 1.5f;
             
             float playerDistanceFromOldSegment = lastPlayerDistance - oldestSegment.startDistance;
             
@@ -316,19 +302,16 @@ public class SplineMathGenerator : MonoBehaviour
                 float segmentLength = oldestSegment.endDistance - oldestSegment.startDistance;
                 removedSplineLength += segmentLength;
                 
-                // NUEVO: Cleanup optimizado con RemoveRange
                 splinePoints.RemoveRange(0, pointsToRemove);
                 splineDirections.RemoveRange(0, pointsToRemove);
                 splineDistances.RemoveRange(0, pointsToRemove);
                 
-                // ARREGLO: Ajustar correctamente las distancias de segmentos restantes
-                for (int i = 1; i < splineSegments.Count; i++) // Empezar desde 1, no 0
+                for (int i = 1; i < splineSegments.Count; i++)
                 {
                     splineSegments[i].startDistance -= segmentLength;
                     splineSegments[i].endDistance -= segmentLength;
                 }
                 
-                // Ajustar distancias del array principal
                 for (int i = 0; i < splineDistances.Count; i++)
                 {
                     splineDistances[i] -= segmentLength;
@@ -342,30 +325,18 @@ public class SplineMathGenerator : MonoBehaviour
         }
     }
     
+    // 🔥 **VERSION LIMPIA SIN COLLECTIBLES NI OBSTACLES**
     void BroadcastSplineUpdated()
     {
-        // NUEVO: Broadcast más eficiente
-        var components = FindObjectsOfType<MonoBehaviour>();
-        
-        foreach (var component in components)
+        foreach (var component in FindObjectsOfType<MonoBehaviour>())
         {
             if (component is TrackVisualizer visualizer)
             {
                 visualizer.OnSplineUpdated();
             }
-            else if (component is CollectibleGenerator collectibleGen)
-            {
-                collectibleGen.OnSplineUpdated();
-            }
-            else if (component is ObstacleGenerator obstacleGen)
-            {
-                // NUEVO: Notificar también a ObstacleGenerator para invalidar cache
-                obstacleGen.InvalidateCaches();
-            }
         }
     }
     
-    // Métodos públicos optimizados
     public Vector3 GetSplinePosition(float distance)
     {
         if (splinePoints.Count < 2) return Vector3.zero;
@@ -435,12 +406,10 @@ public class SplineMathGenerator : MonoBehaviour
         return splinePoints.Count >= 2;
     }
     
-    // NUEVO: Método más inteligente de segmentación
     int GetSegmentAtDistance(float distance)
     {
         if (splineDistances.Count == 0) return 0;
         
-        // NUEVO: Búsqueda binaria para mejor rendimiento
         int left = 0;
         int right = splineDistances.Count - 1;
         
@@ -467,7 +436,6 @@ public class SplineMathGenerator : MonoBehaviour
         float totalLength = GetTotalLength();
         float distanceToEnd = totalLength - playerDistance;
         
-        // NUEVO: Trigger más inteligente basado en velocidad
         if (distanceToEnd <= currentTriggerDistance)
         {
             Debug.Log($"Triggering segment: Player {playerDistance:F1}, Total {totalLength:F1}, Distance to end: {distanceToEnd:F1}, Trigger: {currentTriggerDistance:F1}");
@@ -475,7 +443,6 @@ public class SplineMathGenerator : MonoBehaviour
         }
     }
     
-    // NUEVO: Métodos de debug y monitoreo
     public float GetCurrentTriggerDistance()
     {
         return currentTriggerDistance;
@@ -532,7 +499,6 @@ public class SplineMathGenerator : MonoBehaviour
             Gizmos.DrawWireSphere(segment.endPosition, 0.5f);
         }
         
-        // NUEVO: Mostrar trigger distance
         if (Application.isPlaying && playerFollower != null)
         {
             Gizmos.color = Color.cyan;
